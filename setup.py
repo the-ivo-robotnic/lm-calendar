@@ -3,7 +3,7 @@ import setuptools
 # Modify src if the source directory name changes
 import src as module
 
-with open('README.md', 'r') as file:
+with open("README.md", "r") as file:
     long_description = file.read()
 
 setuptools.setup(
@@ -16,17 +16,16 @@ setuptools.setup(
     license=module.APP_LICENSE,
     description=module.APP_DESCRIPTION,
     long_description=long_description,
-    long_description_content_type='text/markdown',
+    long_description_content_type="text/markdown",
     url=module.APP_URL,
     project_urls={
-        'Documentation': module.APP_URLS['bug-tracking'],
-        'Bug Tracking': module.APP_URLS['documentation']
+        "Documentation": module.APP_URLS["bug-tracking"],
+        "Bug Tracking": module.APP_URLS["documentation"],
     },
     maintainer=module.MAINTAINER_NAME,
     maintainer_email=module.MAINTAINER_EMAIL,
     packages=setuptools.find_packages(),
     include_package_data=True,
-    
     # Project Classifiers
     #   Useful if publishing to PyPi
     #   Valid Classifiers: https://pypi.org/classifiers/
@@ -34,17 +33,19 @@ setuptools.setup(
         "Programming Language :: Python :: 3",
         "License :: CC0 1.0 Universal (CC0 1.0) Public Domain Dedication",
     ],
-    
     # Project building requirements
     setup_requires=[
         "setuptools>=66.1.1",
         "wheel>=0.38.4",
         "pip>=22.3.1",
     ],
-    
     # Project runtime requirements
-    install_requires=[],
-    
+    install_requires=[
+        "html5-parser==0.4.12",
+        "google-api-python-client",
+        "google-auth-httplib2",
+        "google-auth-oauthlib",
+    ],
     # Project development/maintenance requirements
     extras_require={
         "dev": [
@@ -56,12 +57,7 @@ setuptools.setup(
             "sphinx>=6.1.3",
         ]
     },
-    python_requires='>=3.10',
-
+    python_requires=">=3.10",
     # Project script entry point
-    entry_points={
-        "console_scripts": [
-            f'{module.APP_NAME} = src.__main__:main'
-        ]
-    }
+    entry_points={"console_scripts": [f"{module.APP_NAME} = src.__main__:main"]},
 )

@@ -8,7 +8,9 @@ APP_VERSION = f"{APP_VERSION_MAJOR}.{APP_VERSION_MINOR}.{APP_VERSION_PATCH}"
 APP_AUTHOR_NAME = "Ivo Robotnic"
 APP_AUTHOR_EMAIL = "ivo@elips.is"
 APP_LICENSE = "MIT"
-APP_DESCRIPTION = "A service for auto-syncing the Speedgaming tournament to a Google calendar."
+APP_DESCRIPTION = (
+    "A service for auto-syncing the Speedgaming tournament to a Google calendar."
+)
 APP_URL = "https://github.com/the-ivo-robotnic/lm-calendar"
 APP_URLS = {
     "bug-tracking": f"{APP_URL}/issues",
@@ -18,3 +20,8 @@ APP_URLS = {
 # Maintainer Details
 MAINTAINER_NAME = APP_AUTHOR_NAME
 MAINTAINER_EMAIL = APP_AUTHOR_EMAIL
+
+
+# Program Defaults
+SPEEDGAMING_URL = "https://schedule.speedgaming.org/lm/"
+GOOGLE_API_SCOPES = ["https://www.googleapis.com/auth/calendar.events"]
