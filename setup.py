@@ -41,7 +41,7 @@ setuptools.setup(
     ],
     # Project runtime requirements
     install_requires=[
-        "html5-parser==0.4.12",
+        "beautifulsoup4==4.12.3",
         "google-api-python-client",
         "google-auth-httplib2",
         "google-auth-oauthlib",

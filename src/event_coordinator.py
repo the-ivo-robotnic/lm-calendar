@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from .event import Event
+from .event import Event, strip_all, build_datetime
 from . import SPEEDGAMING_URL, GOOGLE_API_SCOPES
 
 from os import getenv
-from lxml.etree import parse
+from bs4 import BeautifulSoup
+from datetime import datetime, timedelta, timezone
 from urllib.request import urlopen
 from logging import Logger, getLogger
 from googleapiclient.errors import HttpError
@@ -25,13 +26,12 @@ class EventCoordinator:
     def __init__(
         self: EventCoordinator,
         speedgaming_url: str,
-        google_calendar_id: str,
-        google_calendar_scpoes: list = GOOGLE_API_SCOPES,
+        google_calendar_name: str = "luigi's mansion",
     ):
         # User-provided parameters
         self.speedgaming_url = speedgaming_url
-        self.google_calendar_id = google_calendar_id
-        self.google_calendar_scpoes = google_calendar_scpoes
+        self.google_calendar_id = self.gc_get_calendar_id(google_calendar_name)
+        self.google_calendar_scpoes = GOOGLE_API_SCOPES
 
         # Build and authenticate google api client
         self.google_calendar_client = self.__build_gc_client()
@@ -70,10 +70,7 @@ class EventCoordinator:
         except HttpError as e:
             LOG.error(e)
 
-    def gc_update_event(self: EventCoordinator, event_id: str, event: Event) -> None:
-        LOG.debug(
-            f"Updating Google Calendar Event for {event.participants} on {event.datetime.ctime()}"
-        )
+    def gc_update_event(self: EventCoordinator, event_id: str, event: Event) -> bool:
         try:
             res = (
                 self.google_calendar_client.events()
@@ -88,39 +85,103 @@ class EventCoordinator:
         except HttpError as e:
             LOG.error(e)
 
-    def sg_get_events(self: EventCoordinator, index_path: str = None) -> [Event]:
-        page = None
+    def gc_delete_event(self: EventCoordinator, event_id: str) -> None:
+        try:
+            res = self.google_calendar_client.events().delete(
+                calendarId=self.google_calendar_id, eventId=event_id
+            )
+            LOG.debug(res)
+        except HttpError as e:
+            LOG.error(e)
 
-        # Fetch SG events
-        if index_path is None:  # Fetch SG events from the web
-            LOG.debug(f"Fetching SG results from the web -> {self.speedgaming_url}")
-            req: HTTPResponse = urlopen(self.speedgaming_url)
-            page = req.read().decode("utf-8").replace("\t", "").replace("\n", "")
-        else:  # Fetch SG events from local index file
-            LOG.debug(f"Fetching SG results from local file -> {index_path}")
-            with open(index_path, "r") as file:
-                page = file.read()
+    def gc_get_all_calendars(self: EventCoordinator) -> [tuple]:
+        calendars = []
+        try:
+            raw_calendars = (
+                self.google_calendar_client.calendarList()
+                .list(pageToken=None)
+                .execute()
+            )
+            raw_calendars = raw_calendars["items"]
+            for cal in raw_calendars:
+                calendars.append((cal["summary"], cal["id"]))
+        except HttpError as e:
+            LOG.error(e)
+        finally:
+            return calendars
 
-        # Parse the SG results
-        root: _Element = parse(page)
-        body: _Element = root.find("body")
-        table: _Element = body.find("table")
-        tbody: _Element = table.find("tbody")
-        rows = tbody.findall("tr")[1:]
+    def gc_get_calendar_id(self: EventCoordinator, name: str) -> str:
+        calendars = self.gc_get_all_calendars()
+        for c in calendars:
+            if name.lower() in c[0].lower():
+                return c[1]
+        return None
+
+    def gc_get_all_events(self: EventCoordinator) -> [Event]:
+        events = []
+        try:
+            raw_events = (
+                self.google_calendar_client.events()
+                .list(
+                    calendarId=self.google_calendar_id,
+                    timeZone=timezone.utc,
+                    pageToken=None,
+                )
+                .execute()
+            )
+
+            for e in raw_events:
+                start_time = e["start"]["dateTime"]
+                end_time = e["end"]["dateTime"]
+                stream_url = e["location"]
+                participants = e["summary"].split(" vs ")
+                commentators = e["description"].split(": ").split(", ")
+
+                events.append(
+                    Event(
+                        start_time=start_time,
+                        end_time=end_time,
+                        stream_url=stream_url,
+                        participants=participants,
+                        commentators=commentators,
+                    )
+                )
+        except HttpError as e:
+            LOG.error(e)
+        finally:
+            return events
+
+    def sg_get_all_events(self: EventCoordinator, index_path: str = None) -> [Event]:
+        events: list = []
+        html_src = (
+            urlopen(self.speedgaming_url)
+            if (index_path is None)
+            else open(index_path, "r")
+        )
+        soup = BeautifulSoup(html_src, "html.parser")
+        table = soup.find("table")
+        rows = table.find_all("tr")[1:]  # Skip the header row
 
         # Serialize into Event objects
-        events: [Event] = []
         for row in rows:
-            children = row.getchildren()
-            if len(children) < 4:
-                LOG.warn(
-                    f"Bad element detected, tossing line: {strip_all(tostring(row).decode('utf-8'))}"
-                )
-                continue
+            columns = row.find_all("td")
+            start_time: datetime = build_datetime(
+                strip_all(columns[0].find("span").text)
+            )
+            end_time: datetime = start_time + timedelta(hours=1)
+            raw_stream_url = columns[2].find("a")
+            stream_url = "" if raw_stream_url is None else raw_stream_url.attrs["href"]
+            participants = columns[1].text.split(" vs ")
+            commentators = columns[3].text.split(", ")
 
-            date_e: _Element = children[0].find("span")
-            participants_e: _Element = children[1]
-            stream_e: _Element = children[2].find("a")
-            commentators_e: _Element = children[3]
-            events.append(Event(date_e, participants_e, stream_e, commentators_e))
+            events.append(
+                Event(
+                    start_time=start_time,
+                    end_time=end_time,
+                    stream_url=stream_url,
+                    participants=participants,
+                    commentators=commentators,
+                )
+            )
+
         return events

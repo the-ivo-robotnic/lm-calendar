@@ -48,13 +48,13 @@ def parse_args():
         f" (Default: {SPEEDGAMING_URL})",
     )
     parser.add_argument(
-        "--google-calendar-id",
-        "-g",
-        dest="google_calendar_id",
-        metavar="Google Calendar ID",
+        "--google-calendar-name",
+        "-n",
+        dest="google_calendar_name",
+        metavar="Google Calendar Name",
         type=str,
-        required=True,
-        help=f"Set the ID of the Google Calendar to update and manage.)",
+        default="luigi's mansion",
+        help=f"Set specify part-or-all of the calendar name to use for updating. (Default: luigi's mansion)",
     )
     return parser.parse_args()
 
@@ -66,13 +66,13 @@ def main():
 
     # Setup the event coordinator
     ec = EventCoordinator(
-        speedgaming_url=args.speedgaming_url, google_calendar_id=args.google_calendar_id
+        speedgaming_url=args.speedgaming_url,
+        google_calendar_name=args.google_calendar_name,
     )
 
     # Do stuff
-    events = ec.sg_get_events(index_path=args.local_index)
-    for e in events:
-        print(e)
+    # sg_events = ec.sg_get_all_events(index_path=args.local_index)
+    # gc_events = ec.gc_get_all_events()
 
 
 if __name__ == "__main__":

@@ -24,4 +24,4 @@ MAINTAINER_EMAIL = APP_AUTHOR_EMAIL
 
 # Program Defaults
 SPEEDGAMING_URL = "https://schedule.speedgaming.org/lm/"
-GOOGLE_API_SCOPES = ["https://www.googleapis.com/auth/calendar.events"]
+GOOGLE_API_SCOPES = ["https://www.googleapis.com/auth/calendar"]
