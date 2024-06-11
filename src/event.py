@@ -86,8 +86,11 @@ class Event:
         self.commentators = commentators
         self.event_id = event_id
 
-    def is_a_pair(self: Event, data: Event) -> bool:
-        now = datetime.now(timezone.utc)
+    def __hash__(self: Event) -> int:
+        return hash(self.start_time) + hash(self.end_time) + hash(self.stream_url) + hash(''.join(self.participants)) + hash(''.join(self.commentators))
+
+    def is_paired_with(self: Event, data: Event) -> bool:
+        now = datetime.now(self.start_time.tzinfo)
         return (
             (self.start_time > now)
             and (data.start_time > now)
@@ -113,6 +116,9 @@ class Event:
             and lists_are_eq(self.participants, other.participants)
             and lists_are_eq(self.commentators, other.commentators)
         )
+    
+    def __lt__(self: Event, data: Event) -> bool:
+        return self.start_time < data.start_time
 
     def to_json(self: Event) -> dict:
         return {

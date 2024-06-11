@@ -62,51 +62,49 @@ class EventCoordinator:
         return build("calendar", "v3", credentials=creds)
 
     def gc_create_event(self: EventCoordinator, event: dict) -> None:
-        try:
-            res = (
-                self.google_calendar_client.events()
-                .insert(calendarId=self.google_calendar_id, body=event)
-                .execute()
-            )
-            LOG.debug(res)
-        except HttpError as e:
-            LOG.error(e)
+        LOG.info(f"Creating event: {event['summary']}")
+        res = (
+            self.google_calendar_client.events()
+            .insert(calendarId=self.google_calendar_id, body=event)
+            .execute()
+        )
+        LOG.debug(res)
 
     def gc_update_event(self: EventCoordinator, event_id: str, event: Event) -> bool:
-        try:
-            res = (
-                self.google_calendar_client.events()
-                .update(
-                    calendarId=self.google_calendar_id,
-                    eventId=event_id,
-                    body=event.to_json(),
-                )
-                .execute()
+        LOG.debug(
+            f'Updating event: {", ".join(event.commentators)} with ID -> {event_id}'
+        )
+        res = (
+            self.google_calendar_client.events()
+            .update(
+                calendarId=self.google_calendar_id,
+                eventId=event_id,
+                body=event.to_json(),
             )
-            LOG.debug(res)
-        except HttpError as e:
-            LOG.error(e)
+            .execute()
+        )
+        LOG.debug(res)
 
     def gc_delete_event(self: EventCoordinator, event_id: str) -> None:
-        try:
-            res = self.google_calendar_client.events().delete(
-                calendarId=self.google_calendar_id, eventId=event_id
-            )
-            LOG.debug(res)
-        except HttpError as e:
-            LOG.error(e)
+        event = (
+            self.google_calendar_client.events()
+            .get(calendarId=self.google_calendar_id, eventId=event_id)
+            .execute()
+        )
+        summary = event["summary"]
+        LOG.info(f"Deleting event: {summary}")
+        res = self.google_calendar_client.events().delete(
+            calendarId=self.google_calendar_id, eventId=event_id
+        )
+        LOG.debug(res)
 
     def gc_get_all_calendars(self: EventCoordinator) -> [tuple]:
         calendars = []
-        try:
-            raw_calendars = self.google_calendar_client.calendarList().list().execute()
-            raw_calendars = raw_calendars["items"]
-            for cal in raw_calendars:
-                calendars.append((cal["summary"], cal["id"]))
-        except HttpError as e:
-            LOG.error(e)
-        finally:
-            return calendars
+        raw_calendars = self.google_calendar_client.calendarList().list().execute()
+        raw_calendars = raw_calendars["items"]
+        for cal in raw_calendars:
+            calendars.append((cal["summary"], cal["id"]))
+        return calendars
 
     def gc_get_calendar_id(self: EventCoordinator, name: str) -> str:
         calendars = self.gc_get_all_calendars()
@@ -128,11 +126,11 @@ class EventCoordinator:
         )
 
         for e in raw_events.get("items"):
-            start_time = e.get("start").get("dateTime")
-            end_time = e.get("end").get("dateTime")
-            stream_url = '' if e.get('location') is None else e.get("location")
+            start_time = datetime.fromisoformat(e.get("start").get("dateTime"))
+            end_time = datetime.fromisoformat(e.get("end").get("dateTime"))
+            stream_url = "" if e.get("location") is None else e.get("location")
             participants = e.get("summary").split(" vs ")
-            commentators = e.get("description").split(': ')[-1].split(', ')
+            commentators = e.get("description").split(": ")[-1].split(", ")
             event_id = e.get("id")
 
             events.append(
@@ -145,7 +143,7 @@ class EventCoordinator:
                     event_id=event_id,
                 )
             )
-            return events
+        return events
 
     def sg_get_all_events(self: EventCoordinator, index_path: str = None) -> [Event]:
         events: list = []
@@ -181,3 +179,36 @@ class EventCoordinator:
             )
 
         return events
+
+    def pair_gc_sg_events(self: EventCoordinator, index_path: str) -> (list, list):
+        # Get all of the events everywhere
+        gc_events = sorted(self.gc_get_all_events())
+        sg_events = sorted(self.sg_get_all_events(index_path))
+        pairs = []
+
+        # Pair all of the pre-existing events
+        while len(gc_events) > 0 and len(sg_events) > 0:
+            gce = gc_events.pop()
+            sge = sg_events.pop()
+
+            LOG.debug(f"GCE: {hash(gce)}, SGE: {hash(sge)}")
+            if gce.is_paired_with(sge):
+                pairs.append((gce, sge))
+            else:
+                gc_events.append(gce)
+                sg_events.append(sge)
+        LOG.info(
+            "Pairing Stats:"
+            f"\n\tPaired: {len(pairs)} events"
+            f"\n\tUnpaired Google Calendar: {len(gc_events)}"
+            f"\n\tUnpaired Speedgaming: {len(sg_events)}"
+        )
+
+        # Determine if pre-existing pairs need updates
+        LOG.info(f"Searching through {len(pairs)} paired events for potential updates.")
+        for gce, sge in pairs:
+            if gce != sge:  # Details are different, update needed
+                LOG.info(f"Updating {' vs '.join(sge.participants)}")
+                self.gc_update_event(gce.event_id, sge)
+
+        return gc_events, sg_events

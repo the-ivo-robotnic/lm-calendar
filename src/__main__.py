@@ -14,15 +14,23 @@ def parse_args():
 
     parser.add_argument(
         "-v",
-        "--verbose",
+        "--info",
+        dest="log_level",
+        action="store_const",
+        const=INFO,
+        help="Set logging to INFO.",
+    )
+    parser.add_argument(
+        "-vv",
+        "--warn",
         dest="log_level",
         action="store_const",
         const=WARN,
         help="Set logging to WARN.",
     )
     parser.add_argument(
-        "-vv",
-        "--very-verbose",
+        "-vvv",
+        "--debug",
         dest="log_level",
         action="store_const",
         const=DEBUG,
@@ -79,10 +87,16 @@ def main():
         google_calendar_name=args.google_calendar_name,
     )
 
-    # Do stuff
-    gc_events = ec.gc_get_all_events()
-    for e in gc_events:
-        import ipdb; ipdb.set_trace()
+    # Pair all of the pre-existing events
+    unpaired_gc, unpaired_sg = ec.pair_gc_sg_events(args.local_index)
+
+    # Create all of the new SG Events
+    for e in unpaired_sg:
+        ec.gc_create_event(e.to_json())
+
+    # Delete all of the stale GC Events
+    for e in unpaired_gc:
+        ec.gc_delete_event(e.event_id)
 
 
 if __name__ == "__main__":
