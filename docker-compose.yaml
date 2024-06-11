@@ -1,0 +1,12 @@
+services:
+  lm-calendar:
+    build: .
+    image: lm-calendar
+    container_name: lm-calendar
+    ports:
+      - 35101:35101
+    volumes:
+      - data_dir:/opt/lm-calendar
+
+volumes:
+  data_dir:

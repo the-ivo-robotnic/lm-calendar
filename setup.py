@@ -1,7 +1,7 @@
 import setuptools
 
 # Modify src if the source directory name changes
-import src as module
+import src.lm_calendar as module
 
 with open("README.md", "r") as file:
     long_description = file.read()
@@ -59,5 +59,9 @@ setuptools.setup(
     },
     python_requires=">=3.10",
     # Project script entry point
-    entry_points={"console_scripts": [f"{module.APP_NAME} = src.__main__:main"]},
+    entry_points={
+        "console_scripts": [
+            f"{module.APP_NAME} = src.{module.APP_NAME.replace('-', '_')}.__main__:main"
+        ]
+    },
 )
