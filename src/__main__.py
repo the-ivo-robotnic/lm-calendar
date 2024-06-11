@@ -38,6 +38,15 @@ def parse_args():
         help="Set a local index page to read from for SG Events instead of the live SG URL.",
     )
     parser.add_argument(
+        "-c",
+        "--config-dir",
+        dest="config_dir",
+        metavar="Config Directory",
+        type=str,
+        default=None,
+        help="Set the path to the config directory.",
+    )
+    parser.add_argument(
         "--speedgaming-url",
         "-s",
         dest="speedgaming_url",
@@ -71,8 +80,9 @@ def main():
     )
 
     # Do stuff
-    # sg_events = ec.sg_get_all_events(index_path=args.local_index)
-    # gc_events = ec.gc_get_all_events()
+    gc_events = ec.gc_get_all_events()
+    for e in gc_events:
+        import ipdb; ipdb.set_trace()
 
 
 if __name__ == "__main__":

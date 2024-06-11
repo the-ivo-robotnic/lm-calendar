@@ -66,8 +66,9 @@ class Event:
     start_time: datetime
     end_time: datetime
     stream_url: ParseResult
-    commentators: [str]
     participants: [str]
+    commentators: [str]
+    event_id: str
 
     def __init__(
         self: Event,
@@ -76,12 +77,14 @@ class Event:
         stream_url: ParseResult,
         participants: [str],
         commentators: [str],
+        event_id: str = None,
     ):
         self.start_time = start_time
         self.end_time = end_time
         self.stream_url = stream_url
         self.participants = participants
         self.commentators = commentators
+        self.event_id = event_id
 
     def is_a_pair(self: Event, data: Event) -> bool:
         now = datetime.now(timezone.utc)

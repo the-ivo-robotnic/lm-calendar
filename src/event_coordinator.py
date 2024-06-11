@@ -30,11 +30,13 @@ class EventCoordinator:
     ):
         # User-provided parameters
         self.speedgaming_url = speedgaming_url
-        self.google_calendar_id = self.gc_get_calendar_id(google_calendar_name)
         self.google_calendar_scpoes = GOOGLE_API_SCOPES
 
         # Build and authenticate google api client
         self.google_calendar_client = self.__build_gc_client()
+
+        # Fetch the desired calendar ID
+        self.google_calendar_id = self.gc_get_calendar_id(google_calendar_name)
 
     def __build_gc_client(
         self: EventCoordinator,
@@ -97,11 +99,7 @@ class EventCoordinator:
     def gc_get_all_calendars(self: EventCoordinator) -> [tuple]:
         calendars = []
         try:
-            raw_calendars = (
-                self.google_calendar_client.calendarList()
-                .list(pageToken=None)
-                .execute()
-            )
+            raw_calendars = self.google_calendar_client.calendarList().list().execute()
             raw_calendars = raw_calendars["items"]
             for cal in raw_calendars:
                 calendars.append((cal["summary"], cal["id"]))
@@ -119,36 +117,34 @@ class EventCoordinator:
 
     def gc_get_all_events(self: EventCoordinator) -> [Event]:
         events = []
-        try:
-            raw_events = (
-                self.google_calendar_client.events()
-                .list(
-                    calendarId=self.google_calendar_id,
-                    timeZone=timezone.utc,
-                    pageToken=None,
-                )
-                .execute()
+        raw_events = (
+            self.google_calendar_client.events()
+            .list(
+                calendarId=self.google_calendar_id,
+                timeZone=timezone.utc,
+                pageToken=None,
             )
+            .execute()
+        )
 
-            for e in raw_events:
-                start_time = e["start"]["dateTime"]
-                end_time = e["end"]["dateTime"]
-                stream_url = e["location"]
-                participants = e["summary"].split(" vs ")
-                commentators = e["description"].split(": ").split(", ")
+        for e in raw_events.get("items"):
+            start_time = e.get("start").get("dateTime")
+            end_time = e.get("end").get("dateTime")
+            stream_url = '' if e.get('location') is None else e.get("location")
+            participants = e.get("summary").split(" vs ")
+            commentators = e.get("description").split(': ')[-1].split(', ')
+            event_id = e.get("id")
 
-                events.append(
-                    Event(
-                        start_time=start_time,
-                        end_time=end_time,
-                        stream_url=stream_url,
-                        participants=participants,
-                        commentators=commentators,
-                    )
+            events.append(
+                Event(
+                    start_time=start_time,
+                    end_time=end_time,
+                    stream_url=stream_url,
+                    participants=participants,
+                    commentators=commentators,
+                    event_id=event_id,
                 )
-        except HttpError as e:
-            LOG.error(e)
-        finally:
+            )
             return events
 
     def sg_get_all_events(self: EventCoordinator, index_path: str = None) -> [Event]:
@@ -171,8 +167,8 @@ class EventCoordinator:
             end_time: datetime = start_time + timedelta(hours=1)
             raw_stream_url = columns[2].find("a")
             stream_url = "" if raw_stream_url is None else raw_stream_url.attrs["href"]
-            participants = columns[1].text.split(" vs ")
-            commentators = columns[3].text.split(", ")
+            participants = strip_all(columns[1].text).split(" vs ")
+            commentators = strip_all(columns[3].text).split(", ")
 
             events.append(
                 Event(
